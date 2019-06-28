@@ -13,6 +13,81 @@ using namespace std;
 
 
 
+template<typename U, typename V>
+void siftDown(U *array, V *extra, int start, int end)
+{
+   int root = start;
+
+   while ( 2 * root + 1 <= end )
+   {
+      int child = 2 * root + 1;
+      int swp = root;
+
+      if ( array[swp] < array[child] )
+      {
+         swp = child;
+      }
+
+      if ( child + 1 <= end && array[swp] < array[child + 1] )
+      {
+         swp = child + 1;
+      }
+
+      if ( swp == root )
+      {
+         return;
+      }
+      else
+      {
+         std::swap(array[root], array[swp]);
+         std::swap(extra[root], extra[swp]);
+         root = swp;
+      }
+   }
+}
+
+
+
+
+
+
+/*!
+ * Sort an array using heapsort, while also applying the same swap operations
+ * to a second array of the same size.
+ *
+ * @param array
+ * @param extra
+ * @param n
+ */
+template<typename U, typename V>
+void heapSort(U *array, V *extra, int n)
+{
+   // heapify the array
+   int start = ((n-1) - 1) / 2;
+
+   while ( start >= 0 )
+   {
+      siftDown(array, extra, start, n - 1);
+      start -= 1;
+   }
+
+   // sort the array
+   int end = n - 1;
+   while ( end > 0 )
+   {
+      std::swap(array[end], array[0]);
+      std::swap(extra[end], extra[0]);
+      end -= 1;
+
+      siftDown(array, extra, 0, end);
+   }
+}
+
+
+
+
+
+
 /*!
  * Construct a new CUDA worker with the given parent analytic, CUDA object,
  * CUDA context, and CUDA program.
@@ -41,7 +116,8 @@ Similarity::CUDA::Worker::Worker(Similarity* base, Similarity::CUDA* baseCuda, :
    int K {_base->_maxClusters};
 
    _buffers.in_index = ::CUDA::Buffer<int2>(1 * W);
-   _buffers.work_N = ::CUDA::Buffer<int>(1 * W, false);
+   _buffers.in_argsort = ::CUDA::Buffer<int>(1 * W);
+   _buffers.work_N = ::CUDA::Buffer<int>(1 * W);
    _buffers.work_xy = ::CUDA::Buffer<float>(2 * N_pow2 * W, false);
    _buffers.work_labels = ::CUDA::Buffer<qint8>(N * W, false);
    _buffers.work_components = ::CUDA::Buffer<cu_component>(K * W, false);
@@ -93,6 +169,7 @@ std::unique_ptr<EAbstractAnalyticBlock> Similarity::CUDA::Worker::execute(const 
       for ( int j = 0; j < globalWorkSize; ++j )
       {
          _buffers.in_index[j] = { index.getX(), index.getY() };
+         _buffers.in_argsort[j] = j;
          ++index;
       }
 
@@ -110,6 +187,14 @@ std::unique_ptr<EAbstractAnalyticBlock> Similarity::CUDA::Worker::execute(const 
          &_buffers.work_N,
          &_buffers.out_labels
       );
+
+      // sort pairwise indices by sample size
+      _buffers.work_N.read(_stream);
+      _stream.wait();
+
+      heapSort(_buffers.work_N.hostData(), _buffers.in_argsort.hostData(), globalWorkSize);
+
+      _buffers.in_argsort.write(_stream);
 
       // execute outlier kernel (pre-clustering)
       if ( _base->_removePreOutliers )
@@ -194,6 +279,7 @@ std::unique_ptr<EAbstractAnalyticBlock> Similarity::CUDA::Worker::execute(const 
             &_baseCuda->_expressions,
             _base->_input->sampleSize(),
             &_buffers.in_index,
+            &_buffers.in_argsort,
             _base->_maxClusters,
             &_buffers.out_labels,
             _base->_minSamples,
@@ -209,6 +295,7 @@ std::unique_ptr<EAbstractAnalyticBlock> Similarity::CUDA::Worker::execute(const 
             &_baseCuda->_expressions,
             _base->_input->sampleSize(),
             &_buffers.in_index,
+            &_buffers.in_argsort,
             _base->_maxClusters,
             &_buffers.out_labels,
             _base->_minSamples,

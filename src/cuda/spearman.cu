@@ -94,6 +94,7 @@ float Spearman_computeCluster(
  * @param expressions
  * @param sampleSize
  * @param in_index
+ * @param in_argsort
  * @param clusterSize
  * @param in_labels
  * @param minSamples
@@ -105,6 +106,7 @@ void Spearman_compute(
    const float *expressions,
    int sampleSize,
    const int2 *in_index,
+   const int *in_argsort,
    char clusterSize,
    const char *in_labels,
    int minSamples,
@@ -121,14 +123,15 @@ void Spearman_compute(
 
    // initialize workspace variables
    int N_pow2 = nextPower2(sampleSize);
-   int2 index = in_index[i];
+   int i_argsort = in_argsort[i];
+   int2 index = in_index[i_argsort];
    const float *x = &expressions[index.x * sampleSize];
    const float *y = &expressions[index.y * sampleSize];
-   const char *labels = &in_labels[i * sampleSize];
+   const char *labels = &in_labels[i_argsort * sampleSize];
    float *x_sorted = &work_xy[(2 * i + 0) * N_pow2];
    float *y_sorted = &work_xy[(2 * i + 1) * N_pow2];
    int *rank = &work_rank[i * N_pow2];
-   float *correlations = &out_correlations[i * clusterSize];
+   float *correlations = &out_correlations[i_argsort * clusterSize];
 
    for ( char k = 0; k < clusterSize; ++k )
    {

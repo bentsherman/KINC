@@ -36,6 +36,7 @@ Similarity::CUDA::Pearson::Pearson(::CUDA::Program* program):
  * @param expressions
  * @param sampleSize
  * @param in_index
+ * @param in_argsort
  * @param clusterSize
  * @param in_labels
  * @param minSamples
@@ -48,6 +49,7 @@ Similarity::CUDA::Pearson::Pearson(::CUDA::Program* program):
    ::CUDA::Buffer<float>* expressions,
    int sampleSize,
    ::CUDA::Buffer<int2>* in_index,
+   ::CUDA::Buffer<int>* in_argsort,
    char clusterSize,
    ::CUDA::Buffer<qint8>* in_labels,
    int minSamples,
@@ -61,6 +63,7 @@ Similarity::CUDA::Pearson::Pearson(::CUDA::Program* program):
       expressions,
       sampleSize,
       in_index,
+      in_argsort,
       clusterSize,
       in_labels,
       minSamples,
@@ -71,6 +74,7 @@ Similarity::CUDA::Pearson::Pearson(::CUDA::Program* program):
    setBuffer(Expressions, expressions);
    setArgument(SampleSize, sampleSize);
    setBuffer(InIndex, in_index);
+   setBuffer(InArgsort, in_argsort);
    setArgument(ClusterSize, clusterSize);
    setBuffer(InLabels, in_labels);
    setArgument(MinSamples, minSamples);
