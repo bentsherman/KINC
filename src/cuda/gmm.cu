@@ -614,6 +614,7 @@ float GMM_computeICL(int K, int D, float logL, int N, float E)
  * @param expressions
  * @param sampleSize
  * @param in_index
+ * @param in_argsort
  * @param minSamples
  * @param minClusters
  * @param maxClusters
@@ -627,6 +628,7 @@ void GMM_compute(
    const float *expressions,
    int sampleSize,
    const int2 *in_index,
+   const int *in_argsort,
    int minSamples,
    char minClusters,
    char maxClusters,
@@ -650,19 +652,20 @@ void GMM_compute(
    }
 
    // initialize workspace variables
-   int2 index = in_index[i];
+   int i_argsort = in_argsort[i];
+   int2 index = in_index[i_argsort];
    const float *x = &expressions[index.x * sampleSize];
    const float *y = &expressions[index.y * sampleSize];
    Vector2 *X = &work_xy[i * sampleSize];
-   int numSamples = work_N[i];
-   char *labels = &work_labels[i * sampleSize];
+   int numSamples = work_N[i_argsort];
+   char *labels = &work_labels[i_argsort * sampleSize];
    Component *components = &work_components[i * maxClusters];
    Vector2 *Mu = &work_MP[i * maxClusters];
    int *counts = &work_counts[i * maxClusters];
    float *logpi = &work_logpi[i * maxClusters];
    float *gamma = &work_gamma[i * maxClusters * sampleSize];
-   char *bestK = &out_K[i];
-   char *bestLabels = &out_labels[i * sampleSize];
+   char *bestK = &out_K[i_argsort];
+   char *bestLabels = &out_labels[i_argsort * sampleSize];
 
    // initialize GMM struct
    GMM gmm = {
