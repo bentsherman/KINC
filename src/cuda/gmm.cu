@@ -658,7 +658,7 @@ void GMM_compute(
    const float *y = &expressions[index.y * sampleSize];
    Vector2 *X = &work_xy[i * sampleSize];
    int numSamples = work_N[i_argsort];
-   char *labels = &work_labels[i_argsort * sampleSize];
+   char *labels = &work_labels[i * sampleSize];
    Component *components = &work_components[i * maxClusters];
    Vector2 *Mu = &work_MP[i * maxClusters];
    int *counts = &work_counts[i * maxClusters];
