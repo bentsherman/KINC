@@ -112,6 +112,7 @@ int removeOutliersCluster(
  * @param expressions
  * @param sampleSize
  * @param in_index
+ * @param in_argsort
  * @param in_N
  * @param in_labels
  * @param in_K
@@ -123,6 +124,7 @@ void removeOutliers(
    const float *expressions,
    int sampleSize,
    const int2 *in_index,
+   const int *in_argsort,
    int *in_N,
    char *in_labels,
    char *in_K,
@@ -138,12 +140,13 @@ void removeOutliers(
 
    // initialize workspace variables
    int N_pow2 = nextPower2(sampleSize);
-   int2 index = in_index[i];
+   int i_argsort = in_argsort[i];
+   int2 index = in_index[i_argsort];
    const float *x = &expressions[index.x * sampleSize];
    const float *y = &expressions[index.y * sampleSize];
-   int *p_N = &in_N[i];
-   char *labels = &in_labels[i * sampleSize];
-   char clusterSize = in_K[i];
+   int *p_N = &in_N[i_argsort];
+   char *labels = &in_labels[i_argsort * sampleSize];
+   char clusterSize = in_K[i_argsort];
    float *x_sorted = &work_xy[(2 * i + 0) * N_pow2];
    float *y_sorted = &work_xy[(2 * i + 1) * N_pow2];
 
