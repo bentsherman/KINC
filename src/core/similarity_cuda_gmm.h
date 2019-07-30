@@ -31,7 +31,7 @@ public:
     */
    enum Argument
    {
-      GlobalWorkSize
+      NumPairs
       ,Expressions
       ,SampleSize
       ,InIndex
@@ -40,7 +40,7 @@ public:
       ,MinClusters
       ,MaxClusters
       ,Criterion
-      ,WorkXY
+      ,WorkX
       ,WorkN
       ,WorkLabels
       ,WorkComponents
@@ -56,6 +56,7 @@ public:
       const ::CUDA::Stream& stream,
       int globalWorkSize,
       int localWorkSize,
+      int numPairs,
       ::CUDA::Buffer<float>* expressions,
       int sampleSize,
       ::CUDA::Buffer<int2>* in_index,
@@ -64,7 +65,7 @@ public:
       char minClusters,
       char maxClusters,
       int criterion,
-      ::CUDA::Buffer<float>* work_xy,
+      ::CUDA::Buffer<float2>* work_X,
       ::CUDA::Buffer<int>* work_N,
       ::CUDA::Buffer<qint8>* work_labels,
       ::CUDA::Buffer<cu_component>* work_components,

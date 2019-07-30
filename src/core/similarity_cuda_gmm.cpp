@@ -33,6 +33,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
  * @param stream
  * @param globalWorkSize
  * @param localWorkSize
+ * @param numPairs
  * @param expressions
  * @param sampleSize
  * @param in_index
@@ -41,7 +42,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
  * @param minClusters
  * @param maxClusters
  * @param criterion
- * @param work_xy
+ * @param work_X
  * @param work_N
  * @param work_labels
  * @param work_components
@@ -56,6 +57,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
    const ::CUDA::Stream& stream,
    int globalWorkSize,
    int localWorkSize,
+   int numPairs,
    ::CUDA::Buffer<float>* expressions,
    int sampleSize,
    ::CUDA::Buffer<int2>* in_index,
@@ -64,7 +66,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
    char minClusters,
    char maxClusters,
    int criterion,
-   ::CUDA::Buffer<float>* work_xy,
+   ::CUDA::Buffer<float2>* work_X,
    ::CUDA::Buffer<int>* work_N,
    ::CUDA::Buffer<qint8>* work_labels,
    ::CUDA::Buffer<cu_component>* work_components,
@@ -80,6 +82,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
       &stream,
       globalWorkSize,
       localWorkSize,
+      numPairs,
       expressions,
       sampleSize,
       in_index,
@@ -88,7 +91,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
       minClusters,
       maxClusters,
       criterion,
-      work_xy,
+      work_X,
       work_N,
       work_labels,
       work_components,
@@ -100,7 +103,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
       out_labels);
 
    // set kernel arguments
-   setArgument(GlobalWorkSize, globalWorkSize);
+   setArgument(NumPairs, numPairs);
    setBuffer(Expressions, expressions);
    setArgument(SampleSize, sampleSize);
    setBuffer(InIndex, in_index);
@@ -109,7 +112,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
    setArgument(MinClusters, minClusters);
    setArgument(MaxClusters, maxClusters);
    setArgument(Criterion, criterion);
-   setBuffer(WorkXY, work_xy);
+   setBuffer(WorkX, work_X);
    setBuffer(WorkN, work_N);
    setBuffer(WorkLabels, work_labels);
    setBuffer(WorkComponents, work_components);
@@ -121,9 +124,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
    setBuffer(OutLabels, out_labels);
 
    // set work sizes
-   int numWorkgroups = (globalWorkSize + localWorkSize - 1) / localWorkSize;
-
-   setSizes(numWorkgroups, localWorkSize);
+   setSizes(globalWorkSize / localWorkSize, localWorkSize);
 
    // execute kernel
    return ::CUDA::Kernel::execute(stream);
