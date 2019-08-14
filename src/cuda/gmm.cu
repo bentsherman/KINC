@@ -52,25 +52,27 @@ int myrand(unsigned long *state)
  * @param X
  * @param N
  * @param K
+ * @param stride
  */
 __device__
 void GMM_initializeComponents(
    GMM *gmm,
    const Vector2 *X,
    int N,
-   int K)
+   int K,
+   int stride)
 {
    // initialize random state
    unsigned long state = 1;
 
    // initialize each mixture component
-   for ( int k = 0; k < K; ++k )
+   for ( int k = 0; k < K * stride; k += stride )
    {
       // initialize mixture weight to uniform distribution
       gmm->pi[k] = 1.0f / K;
 
       // initialize mean to a random sample from X
-      int i = myrand(&state) % N;
+      int i = (myrand(&state) % N) * stride;
 
       gmm->mu[k] = X[i];
 
@@ -90,14 +92,15 @@ void GMM_initializeComponents(
  *
  * @param gmm
  * @param K
+ * @param stride
  */
 __device__
-bool GMM_prepareComponents(GMM *gmm, int K)
+bool GMM_prepareComponents(GMM *gmm, int K, int stride)
 {
    const int D = 2;
    bool success = true;
 
-   for ( int k = 0; k < K; ++k )
+   for ( int k = 0; k < K * stride; k += stride )
    {
       // compute precision (inverse of covariance)
       float det;
@@ -126,9 +129,10 @@ bool GMM_prepareComponents(GMM *gmm, int K)
  * @param X
  * @param N
  * @param K
+ * @param stride
  */
 __device__
-void GMM_initializeMeans(GMM *gmm, const Vector2 *X, int N, int K)
+void GMM_initializeMeans(GMM *gmm, const Vector2 *X, int N, int K, int stride)
 {
    const int MAX_ITERATIONS = 20;
    const float TOLERANCE = 1e-3f;
@@ -141,15 +145,18 @@ void GMM_initializeMeans(GMM *gmm, const Vector2 *X, int N, int K)
    for ( int t = 0; t < MAX_ITERATIONS && diff > TOLERANCE; ++t )
    {
       // compute mean and sample count for each component
-      memset(MP, 0, K * sizeof(Vector2));
-      memset(counts, 0, K * sizeof(int));
+      for ( int k = 0; k < K * stride; k += stride )
+      {
+         vectorInitZero(&MP[k]);
+         counts[k] = 0;
+      }
 
-      for ( int i = 0; i < N; ++i )
+      for ( int i = 0; i < N * stride; i += stride )
       {
          // determine the component mean which is nearest to x_i
          float min_dist = INFINITY;
          int min_k = 0;
-         for ( int k = 0; k < K; ++k )
+         for ( int k = 0; k < K * stride; k += stride )
          {
             float dist = vectorDiffNorm(&X[i], &gmm->mu[k]);
             if ( min_dist > dist )
@@ -165,21 +172,21 @@ void GMM_initializeMeans(GMM *gmm, const Vector2 *X, int N, int K)
       }
 
       // scale each mean by its sample count
-      for ( int k = 0; k < K; ++k )
+      for ( int k = 0; k < K * stride; k += stride )
       {
          vectorScale(&MP[k], 1.0f / counts[k]);
       }
 
       // compute the total change of all means
       diff = 0;
-      for ( int k = 0; k < K; ++k )
+      for ( int k = 0; k < K * stride; k += stride )
       {
          diff += vectorDiffNorm(&MP[k], &gmm->mu[k]);
       }
       diff /= K;
 
       // update component means
-      for ( int k = 0; k < K; ++k )
+      for ( int k = 0; k < K * stride; k += stride )
       {
          gmm->mu[k] = MP[k];
       }
@@ -218,12 +225,13 @@ void GMM_initializeMeans(GMM *gmm, const Vector2 *X, int N, int K)
  * @param X
  * @param N
  * @param K
+ * @param stride
  */
 __device__
-float GMM_computeEStep(GMM *gmm, const Vector2 *X, int N, int K)
+float GMM_computeEStep(GMM *gmm, const Vector2 *X, int N, int K, int stride)
 {
    // compute logpi
-   for ( int k = 0; k < K; ++k )
+   for ( int k = 0; k < K * stride; k += stride )
    {
       gmm->logpi[k] = logf(gmm->pi[k]);
    }
@@ -231,9 +239,9 @@ float GMM_computeEStep(GMM *gmm, const Vector2 *X, int N, int K)
    // compute the log-probability for each component and each point in X
    float *logProb = gmm->gamma;
 
-   for ( int k = 0; k < K; ++k )
+   for ( int k = 0; k < K * stride; k += stride )
    {
-      for ( int i = 0; i < N; ++i )
+      for ( int i = 0; i < N * stride; i += stride )
       {
          // compute xm = (x - mu)
          Vector2 xm = X[i];
@@ -254,11 +262,11 @@ float GMM_computeEStep(GMM *gmm, const Vector2 *X, int N, int K)
    // compute gamma and log-likelihood
    float logL = 0;
 
-   for ( int i = 0; i < N; ++i )
+   for ( int i = 0; i < N * stride; i += stride )
    {
       // compute a = argmax(logpi_k + logProb_ki, k)
       float maxArg = -INFINITY;
-      for ( int k = 0; k < K; ++k )
+      for ( int k = 0; k < K * stride; k += stride )
       {
          float arg = gmm->logpi[k] + logProb[k * N + i];
          if ( maxArg < arg )
@@ -269,7 +277,7 @@ float GMM_computeEStep(GMM *gmm, const Vector2 *X, int N, int K)
 
       // compute logpx
       float sum = 0;
-      for ( int k = 0; k < K; ++k )
+      for ( int k = 0; k < K * stride; k += stride )
       {
          sum += expf(gmm->logpi[k] + logProb[k * N + i] - maxArg);
       }
@@ -277,7 +285,7 @@ float GMM_computeEStep(GMM *gmm, const Vector2 *X, int N, int K)
       float logpx = maxArg + logf(sum);
 
       // compute gamma_ki
-      for ( int k = 0; k < K; ++k )
+      for ( int k = 0; k < K * stride; k += stride )
       {
          gmm->gamma[k * N + i] += gmm->logpi[k] - logpx;
          gmm->gamma[k * N + i] = expf(gmm->gamma[k * N + i]);
@@ -313,16 +321,17 @@ float GMM_computeEStep(GMM *gmm, const Vector2 *X, int N, int K)
  * @param X
  * @param N
  * @param K
+ * @param stride
  */
 __device__
-void GMM_computeMStep(GMM *gmm, const Vector2 *X, int N, int K)
+void GMM_computeMStep(GMM *gmm, const Vector2 *X, int N, int K, int stride)
 {
-   for ( int k = 0; k < K; ++k )
+   for ( int k = 0; k < K * stride; k += stride )
    {
       // compute n_k = sum(gamma_ki)
       float n_k = 0;
 
-      for ( int i = 0; i < N; ++i )
+      for ( int i = 0; i < N * stride; i += stride )
       {
          n_k += gmm->gamma[k * N + i];
       }
@@ -335,7 +344,7 @@ void GMM_computeMStep(GMM *gmm, const Vector2 *X, int N, int K)
 
       vectorInitZero(&mu);
 
-      for ( int i = 0; i < N; ++i )
+      for ( int i = 0; i < N * stride; i += stride )
       {
          vectorAddScaled(&mu, gmm->gamma[k * N + i], &X[i]);
       }
@@ -349,7 +358,7 @@ void GMM_computeMStep(GMM *gmm, const Vector2 *X, int N, int K)
 
       matrixInitZero(&sigma);
 
-      for ( int i = 0; i < N; ++i )
+      for ( int i = 0; i < N * stride; i += stride )
       {
          // compute xm = (x_i - mu_k)
          Vector2 xm = X[i];
@@ -379,21 +388,23 @@ void GMM_computeMStep(GMM *gmm, const Vector2 *X, int N, int K)
  * @param N
  * @param K
  * @param labels
+ * @param stride
  */
 __device__
 void GMM_computeLabels(
    const float *gamma,
    int N,
    int K,
-   char *labels)
+   char *labels,
+   int stride)
 {
-   for ( int i = 0; i < N; ++i )
+   for ( int i = 0; i < N * stride; i += stride )
    {
       // determine the value k for which gamma_ki is highest
       int max_k = -1;
       float max_gamma = -INFINITY;
 
-      for ( int k = 0; k < K; ++k )
+      for ( int k = 0; k < K * stride; k += stride )
       {
          if ( max_gamma < gamma[k * N + i] )
          {
@@ -403,7 +414,7 @@ void GMM_computeLabels(
       }
 
       // assign x_i to cluster k
-      labels[i] = max_k;
+      labels[i] = max_k / stride;
    }
 }
 
@@ -421,18 +432,20 @@ void GMM_computeLabels(
  * @param gamma
  * @param N
  * @param labels
+ * @param stride
  */
 __device__
 float GMM_computeEntropy(
    const float *gamma,
    int N,
-   const char *labels)
+   const char *labels,
+   int stride)
 {
    float E = 0;
 
-   for ( int i = 0; i < N; ++i )
+   for ( int i = 0; i < N * stride; i += stride )
    {
-      int k = labels[i];
+      int k = labels[i] * stride;
 
       E -= logf(gamma[k * N + i]);
    }
@@ -454,6 +467,7 @@ float GMM_computeEntropy(
  * @param N
  * @param K
  * @param labels
+ * @param stride
  */
 __device__
 bool GMM_fit(
@@ -461,13 +475,14 @@ bool GMM_fit(
    const Vector2 *X,
    int N,
    int K,
-   char *labels)
+   char *labels,
+   int stride)
 {
    // initialize mixture components
-   GMM_initializeComponents(gmm, X, N, K);
+   GMM_initializeComponents(gmm, X, N, K, stride);
 
    // initialize means with k-means
-   GMM_initializeMeans(gmm, X, N, K);
+   GMM_initializeMeans(gmm, X, N, K, stride);
 
    // run EM algorithm
    const int MAX_ITERATIONS = 100;
@@ -478,7 +493,7 @@ bool GMM_fit(
    for ( int t = 0; t < MAX_ITERATIONS; ++t )
    {
       // pre-compute precision matrix and normalizer term for each mixture component
-      bool success = GMM_prepareComponents(gmm, K);
+      bool success = GMM_prepareComponents(gmm, K, stride);
 
       // return failure if matrix inverse failed
       if ( !success )
@@ -488,7 +503,7 @@ bool GMM_fit(
 
       // perform E step
       prevLogL = currLogL;
-      currLogL = GMM_computeEStep(gmm, X, N, K);
+      currLogL = GMM_computeEStep(gmm, X, N, K, stride);
 
       // check for convergence
       if ( fabs(currLogL - prevLogL) < TOLERANCE )
@@ -497,13 +512,13 @@ bool GMM_fit(
       }
 
       // perform M step
-      GMM_computeMStep(gmm, X, N, K);
+      GMM_computeMStep(gmm, X, N, K, stride);
    }
 
    // save outputs
    gmm->logL = currLogL;
-   GMM_computeLabels(gmm->gamma, N, K, labels);
-   gmm->entropy = GMM_computeEntropy(gmm->gamma, N, labels);
+   GMM_computeLabels(gmm->gamma, N, K, labels, stride);
+   gmm->entropy = GMM_computeEntropy(gmm->gamma, N, labels, stride);
 
    return true;
 }
@@ -630,6 +645,7 @@ void GMM_compute(
    char *out_labels)
 {
    int i = blockIdx.x * blockDim.x + threadIdx.x;
+   int stride = gridDim.x * blockDim.x;
 
    if ( i >= numPairs )
    {
@@ -641,22 +657,22 @@ void GMM_compute(
    const float *x = &expressions[index.x * sampleSize];
    const float *y = &expressions[index.y * sampleSize];
 
-   Vector2 *X = &work_X[i * sampleSize];
+   Vector2 *X = &work_X[i];
    int numSamples = work_N[i];
-   char *labels = &work_labels[i * sampleSize];
+   char *labels = &work_labels[i];
 
-   float *     gmm_pi = &work_gmm_pi[i * maxClusters];
-   Vector2 *   gmm_mu = &work_gmm_mu[i * maxClusters];
-   Matrix2x2 * gmm_sigma = &work_gmm_sigma[i * maxClusters];
-   Matrix2x2 * gmm_sigmaInv = &work_gmm_sigmaInv[i * maxClusters];
-   float *     gmm_normalizer = &work_gmm_normalizer[i * maxClusters];
-   Vector2 *   gmm_MP = &work_gmm_MP[i * maxClusters];
-   int *       gmm_counts = &work_gmm_counts[i * maxClusters];
-   float *     gmm_logpi = &work_gmm_logpi[i * maxClusters];
-   float *     gmm_gamma = &work_gmm_gamma[i * maxClusters * sampleSize];
+   float *     gmm_pi = &work_gmm_pi[i];
+   Vector2 *   gmm_mu = &work_gmm_mu[i];
+   Matrix2x2 * gmm_sigma = &work_gmm_sigma[i];
+   Matrix2x2 * gmm_sigmaInv = &work_gmm_sigmaInv[i];
+   float *     gmm_normalizer = &work_gmm_normalizer[i];
+   Vector2 *   gmm_MP = &work_gmm_MP[i];
+   int *       gmm_counts = &work_gmm_counts[i];
+   float *     gmm_logpi = &work_gmm_logpi[i];
+   float *     gmm_gamma = &work_gmm_gamma[i];
 
    char *bestK = &out_K[i];
-   char *bestLabels = &out_labels[i * sampleSize];
+   char *bestLabels = &out_labels[i];
 
    // initialize GMM struct
    GMM gmm = {
@@ -681,10 +697,10 @@ void GMM_compute(
       // extract clean samples from data array
       for ( int i = 0, j = 0; i < sampleSize; ++i )
       {
-         if ( bestLabels[i] >= 0 )
+         if ( bestLabels[i * stride] >= 0 )
          {
             X[j] = make_float2(x[i], y[i]);
-            ++j;
+            j += stride;
          }
       }
 
@@ -694,7 +710,7 @@ void GMM_compute(
       for ( char K = minClusters; K <= maxClusters; ++K )
       {
          // run each clustering sub-model
-         bool success = GMM_fit(&gmm, X, numSamples, K, labels);
+         bool success = GMM_fit(&gmm, X, numSamples, K, labels, stride);
 
          if ( !success )
          {
@@ -724,12 +740,12 @@ void GMM_compute(
             bestValue = value;
 
             // save labels for clean samples
-            for ( int i = 0, j = 0; i < sampleSize; ++i )
+            for ( int i = 0, j = 0; i < sampleSize * stride; i += stride )
             {
                if ( bestLabels[i] >= 0 )
                {
                   bestLabels[i] = labels[j];
-                  ++j;
+                  j += stride;
                }
             }
          }

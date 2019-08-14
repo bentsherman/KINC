@@ -13,6 +13,7 @@
  * @param y
  * @param labels
  * @param sampleSize
+ * @param stride
  * @param cluster
  * @param minSamples
  * @param x_rank
@@ -24,6 +25,7 @@ float Spearman_computeCluster(
    const float *y,
    const char *labels,
    int sampleSize,
+   int stride,
    char cluster,
    int minSamples,
    float *x_rank,
@@ -34,10 +36,10 @@ float Spearman_computeCluster(
 
    for ( int i = 0; i < sampleSize; ++i )
    {
-      if ( labels[i] == cluster )
+      if ( labels[i * stride] == cluster )
       {
-         x_rank[n] = x[i];
-         y_rank[n] = y[i];
+         x_rank[n * stride] = x[i];
+         y_rank[n * stride] = y[i];
          ++n;
       }
    }
@@ -45,7 +47,7 @@ float Spearman_computeCluster(
    // get power of 2 size
    int N_pow2 = nextPower2(sampleSize);
 
-   for ( int i = n; i < N_pow2; ++i )
+   for ( int i = n * stride; i < N_pow2 * stride; i += stride )
    {
       x_rank[i] = INFINITY;
       y_rank[i] = INFINITY;
@@ -57,12 +59,12 @@ float Spearman_computeCluster(
    if ( n >= minSamples )
    {
       // compute rank of x
-      bitonicSortFF(N_pow2, x_rank, y_rank);
-      computeRank(x_rank, n);
+      bitonicSortFF(x_rank, y_rank, N_pow2, stride);
+      computeRank(x_rank, n, stride);
 
       // compute rank of y
-      bitonicSortFF(N_pow2, y_rank, x_rank);
-      computeRank(y_rank, n);
+      bitonicSortFF(y_rank, x_rank, N_pow2, stride);
+      computeRank(y_rank, n, stride);
 
       // compute correlation of rank arrays
       float sumx = 0;
@@ -71,7 +73,7 @@ float Spearman_computeCluster(
       float sumy2 = 0;
       float sumxy = 0;
 
-      for ( int i = 0; i < n; ++i )
+      for ( int i = 0; i < n * stride; i += stride )
       {
          float x_i = x_rank[i];
          float y_i = y_rank[i];
@@ -122,6 +124,7 @@ void Spearman_compute(
    float *out_correlations)
 {
    int i = blockIdx.x * blockDim.x + threadIdx.x;
+   int stride = gridDim.x * blockDim.x;
 
    if ( i >= numPairs )
    {
@@ -133,13 +136,13 @@ void Spearman_compute(
    int2 index = in_index[i];
    const float *x = &expressions[index.x * sampleSize];
    const float *y = &expressions[index.y * sampleSize];
-   const char *labels = &in_labels[i * sampleSize];
-   float *x_rank = &work_x[i * N_pow2];
-   float *y_rank = &work_y[i * N_pow2];
-   float *correlations = &out_correlations[i * clusterSize];
+   const char *labels = &in_labels[i];
+   float *x_rank = &work_x[i];
+   float *y_rank = &work_y[i];
+   float *correlations = &out_correlations[i];
 
    for ( char k = 0; k < clusterSize; ++k )
    {
-      correlations[k] = Spearman_computeCluster(x, y, labels, sampleSize, k, minSamples, x_rank, y_rank);
+      correlations[k * stride] = Spearman_computeCluster(x, y, labels, sampleSize, stride, k, minSamples, x_rank, y_rank);
    }
 }

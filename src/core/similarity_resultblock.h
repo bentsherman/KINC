@@ -16,7 +16,7 @@ public:
     */
    explicit ResultBlock() = default;
    explicit ResultBlock(int index, qint64 start);
-   template<class T> static QVector<T> makeVector(const T* data, int size);
+   template<class T> static QVector<T> makeVector(const T* data, int size, int stride=1);
    qint64 start() const { return _start; }
    const QVector<Pair>& pairs() const { return _pairs; }
    QVector<Pair>& pairs() { return _pairs; }
@@ -46,13 +46,24 @@ private:
  *
  * @param data
  * @param size
+ * @param stride
  */
 template<class T>
-QVector<T> Similarity::ResultBlock::makeVector(const T* data, int size)
+QVector<T> Similarity::ResultBlock::makeVector(const T* data, int size, int stride)
 {
    QVector<T> v(size);
 
-   memcpy(v.data(), data, size * sizeof(T));
+   if ( stride == 1 )
+   {
+      memcpy(v.data(), data, size * sizeof(T));
+   }
+   else
+   {
+      for ( int i = 0; i < size; i++ )
+      {
+         v[i] = data[i * stride];
+      }
+   }
    return v;
 }
 

@@ -19,6 +19,7 @@
  * @param y
  * @param labels
  * @param sampleSize
+ * @param stride
  * @param cluster
  * @param marker
  * @param x_sorted
@@ -30,6 +31,7 @@ int removeOutliersCluster(
    const float *y,
    char *labels,
    int sampleSize,
+   int stride,
    char cluster,
    char marker,
    float *x_sorted,
@@ -40,10 +42,10 @@ int removeOutliersCluster(
 
    for ( int i = 0; i < sampleSize; i++ )
    {
-      if ( labels[i] == cluster )
+      if ( labels[i * stride] == cluster )
       {
-         x_sorted[n] = x[i];
-         y_sorted[n] = y[i];
+         x_sorted[n * stride] = x[i];
+         y_sorted[n * stride] = y[i];
          n++;
       }
    }
@@ -51,7 +53,7 @@ int removeOutliersCluster(
    // get power of 2 size
    int N_pow2 = nextPower2(sampleSize);
 
-   for ( int i = n; i < N_pow2; ++i )
+   for ( int i = n * stride; i < N_pow2 * stride; i += stride )
    {
       x_sorted[i] = INFINITY;
       y_sorted[i] = INFINITY;
@@ -64,17 +66,17 @@ int removeOutliersCluster(
    }
 
    // sort samples for each axis
-   bitonicSort(x_sorted, N_pow2);
-   bitonicSort(y_sorted, N_pow2);
+   bitonicSort(x_sorted, N_pow2, stride);
+   bitonicSort(y_sorted, N_pow2, stride);
 
    // compute interquartile range and thresholds for each axis
-   float Q1_x = x_sorted[n * 1 / 4];
-   float Q3_x = x_sorted[n * 3 / 4];
+   float Q1_x = x_sorted[(n * 1 / 4) * stride];
+   float Q3_x = x_sorted[(n * 3 / 4) * stride];
    float T_x_min = Q1_x - 1.5f * (Q3_x - Q1_x);
    float T_x_max = Q3_x + 1.5f * (Q3_x - Q1_x);
 
-   float Q1_y = y_sorted[n * 1 / 4];
-   float Q3_y = y_sorted[n * 3 / 4];
+   float Q1_y = y_sorted[(n * 1 / 4) * stride];
+   float Q3_y = y_sorted[(n * 3 / 4) * stride];
    float T_y_min = Q1_y - 1.5f * (Q3_y - Q1_y);
    float T_y_max = Q3_y + 1.5f * (Q3_y - Q1_y);
 
@@ -84,13 +86,13 @@ int removeOutliersCluster(
    for ( int i = 0; i < sampleSize; i++ )
    {
       // mark samples in the given cluster that are outliers on either axis
-      if ( labels[i] == cluster && (x[i] < T_x_min || T_x_max < x[i] || y[i] < T_y_min || T_y_max < y[i]) )
+      if ( labels[i * stride] == cluster && (x[i] < T_x_min || T_x_max < x[i] || y[i] < T_y_min || T_y_max < y[i]) )
       {
-         labels[i] = marker;
+         labels[i * stride] = marker;
       }
 
       // count the number of remaining samples in the entire data array
-      else if ( labels[i] >= 0 )
+      else if ( labels[i * stride] >= 0 )
       {
          numSamples++;
       }
@@ -131,6 +133,7 @@ void removeOutliers(
    float *work_y)
 {
    int i = blockIdx.x * blockDim.x + threadIdx.x;
+   int stride = gridDim.x * blockDim.x;
 
    if ( i >= numPairs )
    {
@@ -143,10 +146,10 @@ void removeOutliers(
    const float *x = &expressions[index.x * sampleSize];
    const float *y = &expressions[index.y * sampleSize];
    int *p_N = &in_N[i];
-   char *labels = &in_labels[i * sampleSize];
+   char *labels = &in_labels[i];
    char clusterSize = in_K[i];
-   float *x_sorted = &work_x[i * N_pow2];
-   float *y_sorted = &work_y[i * N_pow2];
+   float *x_sorted = &work_x[i];
+   float *y_sorted = &work_y[i];
 
    if ( marker == -7 )
    {
@@ -164,7 +167,7 @@ void removeOutliers(
 
    for ( char k = 0; k < clusterSize; ++k )
    {
-      N = removeOutliersCluster(x, y, labels, sampleSize, k, marker, x_sorted, y_sorted);
+      N = removeOutliersCluster(x, y, labels, sampleSize, stride, k, marker, x_sorted, y_sorted);
    }
 
    // save number of remaining samples

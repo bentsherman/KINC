@@ -246,8 +246,8 @@ std::unique_ptr<EAbstractAnalyticBlock> Similarity::CUDA::Worker::execute(const 
       for ( int j = 0; j < numPairs; ++j )
       {
          // get pointers to the cluster labels and correlations for this pair
-         const qint8 *labels = &_buffers.out_labels.at(j * _base->_input->sampleSize());
-         const float *correlations = &_buffers.out_correlations.at(j * _base->_maxClusters);
+         const qint8 *labels = &_buffers.out_labels.at(j);
+         const float *correlations = &_buffers.out_correlations.at(j);
 
          Pair pair;
 
@@ -257,8 +257,8 @@ std::unique_ptr<EAbstractAnalyticBlock> Similarity::CUDA::Worker::execute(const 
          // save the cluster labels and correlations (if the pair was able to be processed)
          if ( pair.K > 0 )
          {
-            pair.labels = ResultBlock::makeVector(labels, _base->_input->sampleSize());
-            pair.correlations = ResultBlock::makeVector(correlations, _base->_maxClusters);
+            pair.labels = ResultBlock::makeVector(labels, _base->_input->sampleSize(), _base->_globalWorkSize);
+            pair.correlations = ResultBlock::makeVector(correlations, _base->_maxClusters, _base->_globalWorkSize);
          }
 
          resultBlock->append(pair);

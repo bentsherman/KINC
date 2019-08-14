@@ -31,6 +31,7 @@ void fetchPair(
    char *out_labels)
 {
    int i = blockIdx.x * blockDim.x + threadIdx.x;
+   int stride = gridDim.x * blockDim.x;
 
    if ( i >= numPairs )
    {
@@ -39,7 +40,7 @@ void fetchPair(
 
    // initialize variables
    int2 index = in_index[i];
-   char *labels = &out_labels[i * sampleSize];
+   char *labels = &out_labels[i];
    int *p_N = &out_N[i];
 
    // index into gene expressions
@@ -49,25 +50,25 @@ void fetchPair(
    // label the pairwise samples
    int N = 0;
 
-   for ( int i = 0; i < sampleSize; ++i )
+   for ( int i = 0, j = 0; i < sampleSize; i += 1, j += stride )
    {
       // label samples with missing values
       if ( isnan(x[i]) || isnan(y[i]) )
       {
-         labels[i] = -9;
+         labels[j] = -9;
       }
 
       // label samples which fall below the expression threshold
       else if ( x[i] < minExpression || y[i] < minExpression )
       {
-         labels[i] = -6;
+         labels[j] = -6;
       }
 
       // label any remaining samples as cluster 0
       else
       {
          N++;
-         labels[i] = 0;
+         labels[j] = 0;
       }
    }
 

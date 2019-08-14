@@ -51,9 +51,10 @@ void swap(float *a, float *b)
  *
  * @param array
  * @param size
+ * @param stride
  */
 __device__
-void bitonicSort(float *array, int size)
+void bitonicSort(float *array, int size, int stride)
 {
    int bsize = size / 2;
    int dir, a, b, t;
@@ -68,6 +69,10 @@ void bitonicSort(float *array, int size)
             dir = -((i/(ob/2)) & 0x1);
             a = (i/t) * ib + (i%t);
             b = a + t;
+
+            a *= stride;
+            b *= stride;
+
             if ( (!dir && (array[a] > array[b])) || (dir && (array[a] < array[b])) )
             {
                swap(&array[a], &array[b]);
@@ -87,12 +92,13 @@ void bitonicSort(float *array, int size)
  * to a second array of the same size. The arrays should have a size which is a
  * power of two.
  *
- * @param size
  * @param array
  * @param extra
+ * @param size
+ * @param stride
  */
 __device__
-void bitonicSortFF(int size, float *array, float *extra)
+void bitonicSortFF(float *array, float *extra, int size, int stride)
 {
    int bsize = size / 2;
    int dir, a, b, t;
@@ -107,6 +113,10 @@ void bitonicSortFF(int size, float *array, float *extra)
             dir = -((i/(ob/2)) & 0x1);
             a = (i/t) * ib + (i%t);
             b = a + t;
+
+            a *= stride;
+            b *= stride;
+
             if ( (!dir && (array[a] > array[b])) || (dir && (array[a] < array[b])) )
             {
                swap(&array[a], &array[b]);
@@ -128,24 +138,25 @@ void bitonicSortFF(int size, float *array, float *extra)
  *
  * @param array
  * @param n
+ * @param stride
  */
 __device__
-void computeRank(float *array, int n)
+void computeRank(float *array, int n, int stride)
 {
    int i = 0;
 
    while ( i < n - 1 )
    {
-      float a_i = array[i];
+      float a_i = array[i * stride];
 
-      if ( a_i == array[i + 1] )
+      if ( a_i == array[(i + 1) * stride] )
       {
          int j = i + 2;
          int k;
          float rank = 0;
 
          // we have detected a tie, find number of equal elements
-         while ( j < n && a_i == array[j] )
+         while ( j < n && a_i == array[j * stride] )
          {
             ++j;
          }
@@ -161,7 +172,7 @@ void computeRank(float *array, int n)
 
          for ( k = i; k < j; ++k )
          {
-            array[k] = rank;
+            array[k * stride] = rank;
          }
 
          i = j;
@@ -169,13 +180,13 @@ void computeRank(float *array, int n)
       else
       {
          // no tie - set rank to natural ordered position
-         array[i] = i;
+         array[i * stride] = i;
          ++i;
       }
    }
 
    if ( i == n - 1 )
    {
-      array[n - 1] = (float) (n - 1);
+      array[(n - 1) * stride] = (float) (n - 1);
    }
 }
