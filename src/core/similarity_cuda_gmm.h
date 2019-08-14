@@ -21,6 +21,7 @@ public:
       ,Expressions
       ,SampleSize
       ,InIndex
+      ,InArgsort
       ,MinSamples
       ,MinClusters
       ,MaxClusters
@@ -49,6 +50,7 @@ public:
       ::CUDA::Buffer<float>* expressions,
       int sampleSize,
       ::CUDA::Buffer<int2>* in_index,
+      ::CUDA::Buffer<int>* in_argsort,
       int minSamples,
       char minClusters,
       char maxClusters,

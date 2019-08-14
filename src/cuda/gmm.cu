@@ -612,6 +612,7 @@ float GMM_computeICL(int K, int D, float logL, int N, float E)
  * @param expressions
  * @param sampleSize
  * @param in_index
+ * @param in_argsort
  * @param minSamples
  * @param minClusters
  * @param maxClusters
@@ -625,6 +626,7 @@ void GMM_compute(
    const float *expressions,
    int sampleSize,
    const int2 *in_index,
+   const int *in_argsort,
    int minSamples,
    char minClusters,
    char maxClusters,
@@ -653,12 +655,13 @@ void GMM_compute(
    }
 
    // initialize workspace variables
-   int2 index = in_index[i];
+   int i_argsort = in_argsort[i];
+   int2 index = in_index[i_argsort];
    const float *x = &expressions[index.x * sampleSize];
    const float *y = &expressions[index.y * sampleSize];
 
    Vector2 *X = &work_X[i];
-   int numSamples = work_N[i];
+   int numSamples = work_N[i_argsort];
    char *labels = &work_labels[i];
 
    float *     gmm_pi = &work_gmm_pi[i];
@@ -671,8 +674,8 @@ void GMM_compute(
    float *     gmm_logpi = &work_gmm_logpi[i];
    float *     gmm_gamma = &work_gmm_gamma[i];
 
-   char *bestK = &out_K[i];
-   char *bestLabels = &out_labels[i];
+   char *bestK = &out_K[i_argsort];
+   char *bestLabels = &out_labels[i_argsort];
 
    // initialize GMM struct
    GMM gmm = {

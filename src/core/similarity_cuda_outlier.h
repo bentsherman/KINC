@@ -19,6 +19,7 @@ public:
       ,Expressions
       ,SampleSize
       ,InIndex
+      ,InArgsort
       ,InN
       ,InLabels
       ,InK
@@ -35,6 +36,7 @@ public:
       ::CUDA::Buffer<float>* expressions,
       int sampleSize,
       ::CUDA::Buffer<int2>* in_index,
+      ::CUDA::Buffer<int>* in_argsort,
       ::CUDA::Buffer<int>* in_N,
       ::CUDA::Buffer<qint8>* in_labels,
       ::CUDA::Buffer<qint8>* in_K,

@@ -75,6 +75,7 @@ float Pearson_computeCluster(
  * @param expressions
  * @param sampleSize
  * @param in_index
+ * @param in_argsort
  * @param clusterSize
  * @param in_labels
  * @param minSamples
@@ -86,6 +87,7 @@ void Pearson_compute(
    const float *expressions,
    int sampleSize,
    const int2 *in_index,
+   const int *in_argsort,
    char clusterSize,
    const char *in_labels,
    int minSamples,
@@ -100,11 +102,12 @@ void Pearson_compute(
    }
 
    // initialize workspace variables
-   int2 index = in_index[i];
+   int i_argsort = in_argsort[i];
+   int2 index = in_index[i_argsort];
    const float *x = &expressions[index.x * sampleSize];
    const float *y = &expressions[index.y * sampleSize];
-   const char *labels = &in_labels[i];
-   float *correlations = &out_correlations[i];
+   const char *labels = &in_labels[i_argsort];
+   float *correlations = &out_correlations[i_argsort];
 
    for ( char k = 0; k < clusterSize; ++k )
    {

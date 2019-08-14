@@ -37,6 +37,7 @@ Similarity::CUDA::Outlier::Outlier(::CUDA::Program* program):
  * @param expressions
  * @param sampleSize
  * @param in_index
+ * @param in_argsort
  * @param in_N
  * @param in_labels
  * @param in_K
@@ -52,6 +53,7 @@ Similarity::CUDA::Outlier::Outlier(::CUDA::Program* program):
    ::CUDA::Buffer<float>* expressions,
    int sampleSize,
    ::CUDA::Buffer<int2>* in_index,
+   ::CUDA::Buffer<int>* in_argsort,
    ::CUDA::Buffer<int>* in_N,
    ::CUDA::Buffer<qint8>* in_labels,
    ::CUDA::Buffer<qint8>* in_K,
@@ -68,6 +70,7 @@ Similarity::CUDA::Outlier::Outlier(::CUDA::Program* program):
       expressions,
       sampleSize,
       in_index,
+      in_argsort,
       in_N,
       in_labels,
       in_K,
@@ -80,6 +83,7 @@ Similarity::CUDA::Outlier::Outlier(::CUDA::Program* program):
    setBuffer(Expressions, expressions);
    setArgument(SampleSize, sampleSize);
    setBuffer(InIndex, in_index);
+   setBuffer(InArgsort, in_argsort);
    setBuffer(InN, in_N);
    setBuffer(InLabels, in_labels);
    setBuffer(InK, in_K);

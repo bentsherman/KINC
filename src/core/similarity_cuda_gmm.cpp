@@ -37,6 +37,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
  * @param expressions
  * @param sampleSize
  * @param in_index
+ * @param in_argsort
  * @param minSamples
  * @param minClusters
  * @param maxClusters
@@ -64,6 +65,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
    ::CUDA::Buffer<float>* expressions,
    int sampleSize,
    ::CUDA::Buffer<int2>* in_index,
+   ::CUDA::Buffer<int>* in_argsort,
    int minSamples,
    char minClusters,
    char maxClusters,
@@ -92,6 +94,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
       expressions,
       sampleSize,
       in_index,
+      in_argsort,
       minSamples,
       minClusters,
       maxClusters,
@@ -116,6 +119,7 @@ Similarity::CUDA::GMM::GMM(::CUDA::Program* program):
    setBuffer(Expressions, expressions);
    setArgument(SampleSize, sampleSize);
    setBuffer(InIndex, in_index);
+   setBuffer(InArgsort, in_argsort);
    setArgument(MinSamples, minSamples);
    setArgument(MinClusters, minClusters);
    setArgument(MaxClusters, maxClusters);
